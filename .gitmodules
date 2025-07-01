@@ -1,0 +1,4 @@
+[submodule "mediapipe"]
+	path = mediapipe
+	url = https://github.com/google-ai-edge/mediapipe.git
+	branch = master 

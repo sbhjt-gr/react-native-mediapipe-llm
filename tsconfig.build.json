@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true
+  },
+  "exclude": [
+    "example",
+    "**/__tests__/**",
+    "mediapipe"
+  ]
+} 

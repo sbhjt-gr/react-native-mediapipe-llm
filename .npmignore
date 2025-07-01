@@ -1,0 +1,89 @@
+# Development and build artifacts
+build/
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test files
+**/__tests__/**
+**/__fixtures__/**
+**/__mocks__/**
+*.test.*
+*.spec.*
+
+# Example app
+example/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Git and versioning
+.git/
+.gitignore
+.gitmodules
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# MediaPipe build artifacts (but keep source)
+mediapipe/bazel-*
+mediapipe/build/
+mediapipe/.bazelrc.user
+
+# Android specific
+android/build/
+android/.gradle/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+
+# iOS specific
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+# Build outputs to exclude
+lib/
+!lib/**/*.d.ts
+!lib/**/*.js
+!lib/**/*.js.map
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 
