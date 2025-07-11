@@ -20,7 +20,6 @@
     "lib",
     "android",
     "ios",
-    "cpp",
     "mediapipe",
     "scripts/post-install.js",
     "CMakeLists.txt",

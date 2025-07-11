@@ -1,13 +1,11 @@
 package com.reactnativemediapipellm
 
-import com.facebook.react.bridge.Promise
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.bridge.WritableMap
-import com.facebook.react.bridge.WritableNativeMap
-import com.facebook.react.bridge.Callback
+import android.content.Context
+import com.facebook.react.bridge.*
+import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import kotlinx.coroutines.*
+import java.io.File
 
 class MediapipeLlmModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -16,34 +14,104 @@ class MediapipeLlmModule(reactContext: ReactApplicationContext) :
     return NAME
   }
 
-  init {
-    try {
-      System.loadLibrary("MediapipeLlm")
-    } catch (e: UnsatisfiedLinkError) {
-      System.loadLibrary("mediapipellm")
+  private var llmInference: LlmInference? = null
+  private var isInitialized = false
+  private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+  @ReactMethod
+  fun initialize(options: ReadableMap, promise: Promise) {
+    scope.launch {
+      try {
+        val modelPath = options.getString("modelPath")
+        if (modelPath == null) {
+          promise.reject("INVALID_PARAMS", "modelPath is required")
+          return@launch
+        }
+
+        val modelFile = File(modelPath)
+        if (!modelFile.exists()) {
+          promise.reject("MODEL_NOT_FOUND", "Model file not found at: $modelPath")
+          return@launch
+        }
+
+        val llmOptions = LlmInference.LlmInferenceOptions.builder()
+          .setModelPath(modelPath)
+          .setMaxTokens(options.getInt("maxTokens").takeIf { it > 0 } ?: 512)
+          .setTemperature(options.getDouble("temperature").takeIf { it > 0 } ?: 0.8)
+          .setTopK(options.getInt("topK").takeIf { it > 0 } ?: 40)
+          .setTopP(options.getDouble("topP").takeIf { it > 0 } ?: 0.9)
+          .build()
+
+        llmInference = LlmInference.createFromOptions(reactApplicationContext, llmOptions)
+        isInitialized = true
+        promise.resolve(true)
+      } catch (e: Exception) {
+        isInitialized = false
+        promise.reject("INIT_ERROR", "Failed to initialize LLM: ${e.message}", e)
+      }
     }
   }
 
   @ReactMethod
-  fun multiply(a: Double, b: Double, promise: Promise) {
-    promise.resolve(nativeMultiply(a, b))
+  fun generateResponse(prompt: String, promise: Promise) {
+    scope.launch {
+      try {
+        if (!isInitialized || llmInference == null) {
+          promise.reject("NOT_INITIALIZED", "LLM not initialized")
+          return@launch
+        }
+
+        val response = llmInference!!.generateResponse(prompt)
+        promise.resolve(response)
+      } catch (e: Exception) {
+        promise.reject("GENERATION_ERROR", "Failed to generate response: ${e.message}", e)
+      }
+    }
   }
 
   @ReactMethod
-  fun install(promise: Promise) {
-    try {
-      val reactApplicationContext = reactApplicationContext
-      val catalystInstance = reactApplicationContext.catalystInstance
-      val runtime = catalystInstance.javaScriptContextHolder.get()
-      
-      if (runtime != 0L) {
-        nativeInstall(runtime)
-        promise.resolve(true)
-      } else {
-        promise.reject("RUNTIME_ERROR", "JavaScript runtime not available")
+  fun generateResponseWithCallback(
+    prompt: String,
+    successCallback: Callback,
+    errorCallback: Callback
+  ) {
+    scope.launch {
+      try {
+        if (!isInitialized || llmInference == null) {
+          errorCallback.invoke("LLM not initialized")
+          return@launch
+        }
+
+        llmInference!!.generateResponseAsync(
+          prompt
+        ) { partialResult, done ->
+          try {
+            successCallback.invoke(partialResult, done)
+          } catch (e: Exception) {
+            errorCallback.invoke("Callback error: ${e.message}")
+          }
+        }
+      } catch (e: Exception) {
+        errorCallback.invoke("Failed to generate response: ${e.message}")
       }
-    } catch (exception: Exception) {
-      promise.reject("INSTALL_ERROR", "Failed to install MediaPipe LLM: ${exception.message}", exception)
+    }
+  }
+
+  @ReactMethod
+  fun isInitialized(promise: Promise) {
+    promise.resolve(isInitialized)
+  }
+
+  @ReactMethod
+  fun cleanup(promise: Promise) {
+    try {
+      llmInference?.close()
+      llmInference = null
+      isInitialized = false
+      scope.cancel()
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("CLEANUP_ERROR", "Failed to cleanup: ${e.message}", e)
     }
   }
 
@@ -55,8 +123,11 @@ class MediapipeLlmModule(reactContext: ReactApplicationContext) :
   fun removeListeners(count: Int) {
   }
 
-  private external fun nativeMultiply(a: Double, b: Double): Double
-  private external fun nativeInstall(jsiPtr: Long)
+  override fun onCatalystInstanceDestroy() {
+    super.onCatalystInstanceDestroy()
+    llmInference?.close()
+    scope.cancel()
+  }
 
   companion object {
     const val NAME = "MediapipeLlm"

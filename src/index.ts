@@ -1,106 +1,95 @@
-import MediaPipeLlm from './MediaPipeLlm';
+import { useCallback, useRef } from 'react';
+import { NativeModules, Platform } from 'react-native';
 
-export enum LlmPreferredBackend {
-  DEFAULT = 0,
-  GPU = 1,
-  CPU = 2,
-}
+const LINKING_ERROR =
+  `The package 'react-native-mediapipe-llm' doesn't seem to be linked. Make sure: \n\n` +
+  Platform.select({ ios: "- You have run 'cd ios && pod install'\n", default: '' }) +
+  '- You rebuilt the app after installing the package\n' +
+  '- You are not using Expo Go\n';
 
-export enum LlmActivationDataType {
-  DEFAULT = 0,
-  FLOAT32 = 1,
-  FLOAT16 = 2,
-  INT16 = 3,
-  INT8 = 4,
-}
+const MediapipeLlm = NativeModules.MediapipeLlm
+  ? NativeModules.MediapipeLlm
+  : new Proxy(
+      {},
+      {
+        get() {
+          throw new Error(LINKING_ERROR);
+        },
+      }
+    );
 
-export interface LlmModelSettings {
-  modelPath: string;
-  visionEncoderPath?: string;
-  visionAdapterPath?: string;
-  cacheDir?: string;
-  maxNumTokens?: number;
-  maxNumImages?: number;
-  preferredBackend?: LlmPreferredBackend;
-  activationDataType?: LlmActivationDataType;
-  enableAudioModality?: boolean;
-}
-
-export interface LlmSessionConfig {
+export interface LlmOptions {
+  modelPath?: string;
+  maxTokens?: number;
+  temperature?: number;
   topK?: number;
   topP?: number;
-  temperature?: number;
-  randomSeed?: number;
-  enableVisionModality?: boolean;
-  enableAudioModality?: boolean;
-  promptTemplates?: LlmPromptTemplates;
 }
 
-export interface LlmPromptTemplates {
-  prefix?: string;
-  suffix?: string;
-  systemInstruction?: string;
+export interface LlmInferenceHook {
+  generateResponse: (
+    prompt: string,
+    partialCallback?: (partial: string) => void
+  ) => Promise<string>;
+  isInitialized: boolean;
+  initialize: (options: LlmOptions) => Promise<boolean>;
 }
 
-export interface LlmResponse {
-  responses: string[];
-  done: boolean;
-  tokenCount?: number;
+export function useLlmInference(): LlmInferenceHook {
+  const isInitializedRef = useRef(false);
+  
+  const initialize = useCallback(async (opts: LlmOptions): Promise<boolean> => {
+    try {
+      const success = await MediapipeLlm.initialize(opts);
+      isInitializedRef.current = success;
+      return success;
+    } catch (error) {
+      isInitializedRef.current = false;
+      return false;
+    }
+  }, []);
+
+  const generateResponse = useCallback(
+    async (
+      prompt: string, 
+      partialCallback?: (partial: string) => void
+    ): Promise<string> => {
+      if (!isInitializedRef.current) {
+        throw new Error('LLM not initialized. Call initialize() first.');
+      }
+
+      if (partialCallback) {
+        return new Promise((resolve, reject) => {
+          let fullResponse = '';
+          
+          MediapipeLlm.generateResponseWithCallback(
+            prompt,
+            (partial: string, done: boolean) => {
+              if (partial) {
+                fullResponse += partial;
+                partialCallback(partial);
+              }
+              if (done) {
+                resolve(fullResponse);
+              }
+            },
+            (error: string) => {
+              reject(new Error(error));
+            }
+          );
+        });
+      } else {
+        return MediapipeLlm.generateResponse(prompt);
+      }
+    },
+    []
+  );
+
+  return {
+    generateResponse,
+    isInitialized: isInitializedRef.current,
+    initialize,
+  };
 }
 
-export class MediaPipeLLM {
-  private nativeInstance: any;
-
-  constructor() {
-    this.nativeInstance = new MediaPipeLlm();
-  }
-
-  async createEngine(settings: LlmModelSettings): Promise<void> {
-    return this.nativeInstance.createEngine(settings);
-  }
-
-  async createSession(config?: LlmSessionConfig): Promise<void> {
-    return this.nativeInstance.createSession(config || {});
-  }
-
-  async addQueryChunk(queryChunk: string): Promise<void> {
-    return this.nativeInstance.addQueryChunk(queryChunk);
-  }
-
-  async addImage(imageUri: string): Promise<void> {
-    return this.nativeInstance.addImage(imageUri);
-  }
-
-  async addAudio(audioData: string): Promise<void> {
-    return this.nativeInstance.addAudio(audioData);
-  }
-
-  async predictSync(): Promise<LlmResponse> {
-    return this.nativeInstance.predictSync();
-  }
-
-  async predictAsync(callback: (response: LlmResponse) => void): Promise<void> {
-    return this.nativeInstance.predictAsync(callback);
-  }
-
-  async cloneSession(): Promise<MediaPipeLLM> {
-    const clonedNative = await this.nativeInstance.cloneSession();
-    const clonedInstance = new MediaPipeLLM();
-    clonedInstance.nativeInstance = clonedNative;
-    return clonedInstance;
-  }
-
-  async sizeInTokens(text: string): Promise<number> {
-    return this.nativeInstance.sizeInTokens(text);
-  }
-
-  async updateRuntimeConfig(config: Partial<LlmSessionConfig>): Promise<void> {
-    return this.nativeInstance.updateRuntimeConfig(config);
-  }
-
-  async cleanup(): Promise<void> {
-    return this.nativeInstance.cleanup();
-  }
-}
-
-export default MediaPipeLLM; 
+export default useLlmInference; 
