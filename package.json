@@ -1,15 +1,15 @@
 {
   "name": "@subhajit-gorai/react-native-mediapipe-llm",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "React Native binding for Google AI Edge Gallery's MediaPipe on-device LLM inference engine",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
-  "types": "lib/typescript/src/index.d.ts",
+  "types": "lib/typescript/index.d.ts",
   "react-native": "src/index",
   "source": "src/index",
   "exports": {
     ".": {
-      "types": "./lib/typescript/src/index.d.ts",
+      "types": "./lib/typescript/index.d.ts",
       "import": "./lib/module/index.js",
       "require": "./lib/commonjs/index.js",
       "react-native": "./src/index.ts"
@@ -20,6 +20,7 @@
     "lib",
     "android",
     "ios",
+    "cpp",
     "mediapipe",
     "scripts/post-install.js",
     "CMakeLists.txt",
@@ -46,8 +47,6 @@
     "setup": "bash scripts/setup.sh",
     "build:cpp": "bash scripts/build-cpp.sh",
     "validate": "bash scripts/validate-build.sh",
-    "prebuild": "node scripts/prebuild.js",
-    "prepare": "npm run prebuild",
     "prepublishOnly": "npm run validate",
     "postinstall": "node scripts/post-install.js",
     "release": "release-it"

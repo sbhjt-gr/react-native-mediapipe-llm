@@ -25,11 +25,9 @@ function runCommand(command, options = {}) {
 }
 
 try {
-  // Only run setup if this is a fresh install in node_modules
   if (isInNodeModules) {
     console.log('Setting up MediaPipe submodule...');
     
-    // Check if MediaPipe submodule exists and is initialized
     const mediapipeDir = path.resolve(projectRoot, 'mediapipe');
     const mediapipeGitDir = path.resolve(mediapipeDir, '.git');
     
@@ -40,7 +38,7 @@ try {
       console.log('MediaPipe submodule already initialized');
     }
     
-    console.log('✅ Post-install setup completed');
+    console.log('Post-install setup completed');
     console.log('');
     console.log('Next steps:');
     console.log('1. Download a compatible LLM model (.task file)');

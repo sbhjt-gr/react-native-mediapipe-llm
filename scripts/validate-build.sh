@@ -7,22 +7,21 @@ echo "Validating build configuration for react-native-mediapipe-llm..."
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
 success() {
-    echo -e "${GREEN}✓${NC} $1"
+    echo -e "${GREEN}$1${NC}"
 }
 
 warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    echo -e "${YELLOW}$1${NC}"
 }
 
 error() {
-    echo -e "${RED}✗${NC} $1"
+    echo -e "${RED}$1${NC}"
     exit 1
 }
 
@@ -119,4 +118,4 @@ fi
 echo ""
 success "All validations passed!"
 echo ""
-echo "Ready for npm publish!" 
+echo "Ready for npm publish"

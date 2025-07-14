@@ -1,95 +1,120 @@
-import { useCallback, useRef } from 'react';
-import { NativeModules, Platform } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 
-const LINKING_ERROR =
-  `The package 'react-native-mediapipe-llm' doesn't seem to be linked. Make sure: \n\n` +
-  Platform.select({ ios: "- You have run 'cd ios && pod install'\n", default: '' }) +
-  '- You rebuilt the app after installing the package\n' +
-  '- You are not using Expo Go\n';
+const { MediapipeLlm } = NativeModules;
 
-const MediapipeLlm = NativeModules.MediapipeLlm
-  ? NativeModules.MediapipeLlm
-  : new Proxy(
-      {},
-      {
-        get() {
-          throw new Error(LINKING_ERROR);
-        },
-      }
-    );
+let eventEmitter: NativeEventEmitter | null = null;
+if (MediapipeLlm) {
+  try {
+    eventEmitter = new NativeEventEmitter(MediapipeLlm);
+  } catch (error) {
+    
+  }
+}
 
-export interface LlmOptions {
+export type LlmInferenceConfig = {
+  storageType: 'asset' | 'file';
+  modelName?: string;
   modelPath?: string;
   maxTokens?: number;
-  temperature?: number;
   topK?: number;
-  topP?: number;
-}
+  temperature?: number;
+  randomSeed?: number;
+};
 
 export interface LlmInferenceHook {
   generateResponse: (
     prompt: string,
-    partialCallback?: (partial: string) => void
+    onPartial?: (partial: string) => void,
+    onError?: (error: string) => void
   ) => Promise<string>;
-  isInitialized: boolean;
-  initialize: (options: LlmOptions) => Promise<boolean>;
+  isLoaded: boolean;
 }
 
-export function useLlmInference(): LlmInferenceHook {
-  const isInitializedRef = useRef(false);
+export function useLlmInference(config?: LlmInferenceConfig): LlmInferenceHook {
+  if (typeof useState !== 'function') {
+    throw new Error('useLlmInference must be called within a React component');
+  }
   
-  const initialize = useCallback(async (opts: LlmOptions): Promise<boolean> => {
-    try {
-      const success = await MediapipeLlm.initialize(opts);
-      isInitializedRef.current = success;
-      return success;
-    } catch (error) {
-      isInitializedRef.current = false;
-      return false;
+  const [modelHandle, setModelHandle] = useState<number | undefined>();
+  
+  useEffect(() => {
+    if (!config) {
+      setModelHandle(undefined);
+      return;
     }
-  }, []);
+
+    const createPromise = config.storageType === 'asset'
+      ? MediapipeLlm.createModelFromAsset(
+          config.modelName,
+          config.maxTokens ?? 512,
+          config.topK ?? 40,
+          config.temperature ?? 0.8,
+          config.randomSeed ?? 0
+        )
+      : MediapipeLlm.createModel(
+          config.modelPath,
+          config.maxTokens ?? 512,
+          config.topK ?? 40,
+          config.temperature ?? 0.8,
+          config.randomSeed ?? 0
+        );
+
+    createPromise
+      .then(setModelHandle)
+      .catch(console.error);
+
+    return () => {
+      if (modelHandle) {
+        MediapipeLlm.releaseModel(modelHandle);
+      }
+    };
+  }, [config?.storageType, config?.modelName, config?.modelPath, config?.maxTokens, config?.topK, config?.temperature, config?.randomSeed]);
 
   const generateResponse = useCallback(
     async (
-      prompt: string, 
-      partialCallback?: (partial: string) => void
+      prompt: string,
+      onPartial?: (partial: string) => void,
+      onError?: (error: string) => void
     ): Promise<string> => {
-      if (!isInitializedRef.current) {
-        throw new Error('LLM not initialized. Call initialize() first.');
-      }
+      if (!modelHandle) throw new Error('Model not loaded');
+      
+      const requestId = Date.now();
+      
+      const partialSub = eventEmitter?.addListener(
+        'onPartialResponse',
+        (ev) => {
+          if (ev.requestId === requestId && onPartial) {
+            onPartial(ev.response);
+          }
+        }
+      );
+      
+      const errorSub = eventEmitter?.addListener(
+        'onErrorResponse',
+        (ev) => {
+          if (ev.requestId === requestId && onError) {
+            onError(ev.error);
+          }
+        }
+      );
 
-      if (partialCallback) {
-        return new Promise((resolve, reject) => {
-          let fullResponse = '';
-          
-          MediapipeLlm.generateResponseWithCallback(
-            prompt,
-            (partial: string, done: boolean) => {
-              if (partial) {
-                fullResponse += partial;
-                partialCallback(partial);
-              }
-              if (done) {
-                resolve(fullResponse);
-              }
-            },
-            (error: string) => {
-              reject(new Error(error));
-            }
-          );
-        });
-      } else {
-        return MediapipeLlm.generateResponse(prompt);
+      try {
+        return await MediapipeLlm.generateResponse(
+          modelHandle,
+          requestId,
+          prompt
+        );
+      } finally {
+        partialSub?.remove();
+        errorSub?.remove();
       }
     },
-    []
+    [modelHandle]
   );
 
   return {
     generateResponse,
-    isInitialized: isInitializedRef.current,
-    initialize,
+    isLoaded: modelHandle !== undefined
   };
-}
-
-export default useLlmInference; 
+} 

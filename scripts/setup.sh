@@ -4,13 +4,11 @@ set -e
 
 echo "Setting up react-native-mediapipe-llm..."
 
-# Check if git is available
 if ! command -v git &> /dev/null; then
     echo "Git is not installed. Please install git first."
     exit 1
 fi
 
-# Check if CMake is available
 if ! command -v cmake &> /dev/null; then
     echo "CMake is not installed. Please install CMake 3.13+ first."
     echo "   macOS: brew install cmake"
@@ -19,7 +17,6 @@ if ! command -v cmake &> /dev/null; then
     exit 1
 fi
 
-# Check CMake version
 CMAKE_VERSION=$(cmake --version | head -n1 | cut -d' ' -f3)
 CMAKE_MAJOR=$(echo $CMAKE_VERSION | cut -d. -f1)
 CMAKE_MINOR=$(echo $CMAKE_VERSION | cut -d. -f2)
@@ -31,7 +28,6 @@ fi
 
 echo "CMake version $CMAKE_VERSION is compatible"
 
-# Initialize and update MediaPipe submodule
 echo "Initializing MediaPipe submodule..."
 if [ ! -d "mediapipe/.git" ]; then
     git submodule update --init --recursive
@@ -40,11 +36,9 @@ else
     echo "MediaPipe submodule already initialized"
 fi
 
-# Update submodule to latest
 echo "Updating MediaPipe to latest version..."
 git submodule update --recursive --remote
 
-# Check if we're in a React Native project
 if [ -f "../../package.json" ]; then
     PROJECT_ROOT="../../"
 elif [ -f "../package.json" ]; then
@@ -53,10 +47,8 @@ else
     PROJECT_ROOT="."
 fi
 
-# Setup platform-specific dependencies
 echo "Setting up platform dependencies..."
 
-# iOS setup
 if [ -d "${PROJECT_ROOT}ios" ]; then
     echo "Setting up iOS dependencies..."
     if command -v pod &> /dev/null; then
@@ -69,7 +61,6 @@ if [ -d "${PROJECT_ROOT}ios" ]; then
     fi
 fi
 
-# Android setup
 if [ -d "${PROJECT_ROOT}android" ]; then
     echo "Android setup will happen automatically during build"
     echo "Android CMake build configured"
@@ -83,4 +74,4 @@ echo "1. Add a model file to your app (download from Kaggle or convert your own)
 echo "2. Import and use MediaPipeLLM in your React Native code"
 echo "3. Run your app: npx react-native run-ios / npx react-native run-android"
 echo ""
-echo "Check the README.md for usage examples and API documentation" 
+echo "Check the README.md for usage examples and API documentation"

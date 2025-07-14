@@ -1,0 +1,8 @@
+{
+  "android": {
+    "package": "com.subhajitgorai.subhajitgoraireactnativemediapipellm"
+  },
+  "ios": {
+    "bundleIdentifier": "com.subhajitgorai.subhajitgoraireactnativemediapipellm"
+  }
+}

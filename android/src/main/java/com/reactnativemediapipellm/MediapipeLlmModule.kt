@@ -4,132 +4,128 @@ import android.content.Context
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import kotlinx.coroutines.*
 import java.io.File
+import java.io.FileOutputStream
 
-class MediapipeLlmModule(reactContext: ReactApplicationContext) :
-  ReactContextBaseJavaModule(reactContext) {
+class MediapipeLlmModule(private val reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
 
-  override fun getName(): String {
-    return NAME
-  }
+    private var nextHandle = 1
+    private val modelMap = mutableMapOf<Int, MediapipeLlmModel>()
 
-  private var llmInference: LlmInference? = null
-  private var isInitialized = false
-  private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    override fun getName(): String = "MediapipeLlm"
 
-  @ReactMethod
-  fun initialize(options: ReadableMap, promise: Promise) {
-    scope.launch {
-      try {
-        val modelPath = options.getString("modelPath")
-        if (modelPath == null) {
-          promise.reject("INVALID_PARAMS", "modelPath is required")
-          return@launch
+    @ReactMethod
+    fun createModelFromAsset(
+        modelName: String,
+        maxTokens: Int,
+        topK: Int,
+        temperature: Double,
+        randomSeed: Int,
+        promise: Promise
+    ) {
+        try {
+            val modelPath = copyAssetToInternalStorage(modelName)
+            val modelHandle = nextHandle++
+            
+            val model = MediapipeLlmModel(
+                reactContext,
+                modelPath,
+                maxTokens,
+                topK,
+                temperature.toFloat(),
+                randomSeed,
+                { requestId, response -> emitEvent("onPartialResponse", createEventMap(modelHandle, requestId, response)) },
+                { requestId, error -> emitEvent("onErrorResponse", createEventMap(modelHandle, requestId, error)) }
+            )
+            
+            modelMap[modelHandle] = model
+            promise.resolve(modelHandle)
+        } catch (e: Exception) {
+            promise.reject("MODEL_CREATION_FAILED", e.localizedMessage)
         }
-
-        val modelFile = File(modelPath)
-        if (!modelFile.exists()) {
-          promise.reject("MODEL_NOT_FOUND", "Model file not found at: $modelPath")
-          return@launch
-        }
-
-        val llmOptions = LlmInference.LlmInferenceOptions.builder()
-          .setModelPath(modelPath)
-          .setMaxTokens(options.getInt("maxTokens").takeIf { it > 0 } ?: 512)
-          .setTemperature(options.getDouble("temperature").takeIf { it > 0 } ?: 0.8)
-          .setTopK(options.getInt("topK").takeIf { it > 0 } ?: 40)
-          .setTopP(options.getDouble("topP").takeIf { it > 0 } ?: 0.9)
-          .build()
-
-        llmInference = LlmInference.createFromOptions(reactApplicationContext, llmOptions)
-        isInitialized = true
-        promise.resolve(true)
-      } catch (e: Exception) {
-        isInitialized = false
-        promise.reject("INIT_ERROR", "Failed to initialize LLM: ${e.message}", e)
-      }
     }
-  }
 
-  @ReactMethod
-  fun generateResponse(prompt: String, promise: Promise) {
-    scope.launch {
-      try {
-        if (!isInitialized || llmInference == null) {
-          promise.reject("NOT_INITIALIZED", "LLM not initialized")
-          return@launch
+    @ReactMethod
+    fun createModel(
+        modelPath: String,
+        maxTokens: Int,
+        topK: Int,
+        temperature: Double,
+        randomSeed: Int,
+        promise: Promise
+    ) {
+        try {
+            val modelHandle = nextHandle++
+            
+            val model = MediapipeLlmModel(
+                reactContext,
+                modelPath,
+                maxTokens,
+                topK,
+                temperature.toFloat(),
+                randomSeed,
+                { requestId, response -> emitEvent("onPartialResponse", createEventMap(modelHandle, requestId, response = response)) },
+                { requestId, error -> emitEvent("onErrorResponse", createEventMap(modelHandle, requestId, error = error)) }
+            )
+            
+            modelMap[modelHandle] = model
+            promise.resolve(modelHandle)
+        } catch (e: Exception) {
+            promise.reject("MODEL_CREATION_FAILED", e.localizedMessage)
         }
-
-        val response = llmInference!!.generateResponse(prompt)
-        promise.resolve(response)
-      } catch (e: Exception) {
-        promise.reject("GENERATION_ERROR", "Failed to generate response: ${e.message}", e)
-      }
     }
-  }
 
-  @ReactMethod
-  fun generateResponseWithCallback(
-    prompt: String,
-    successCallback: Callback,
-    errorCallback: Callback
-  ) {
-    scope.launch {
-      try {
-        if (!isInitialized || llmInference == null) {
-          errorCallback.invoke("LLM not initialized")
-          return@launch
+    @ReactMethod
+    fun generateResponse(handle: Int, requestId: Int, prompt: String, promise: Promise) {
+        modelMap[handle]?.let { 
+            it.generateResponseAsync(requestId, prompt, promise) 
+        } ?: promise.reject("INVALID_HANDLE", "No model found for handle $handle")
+    }
+
+    @ReactMethod
+    fun releaseModel(handle: Int, promise: Promise) {
+        modelMap.remove(handle)?.let { 
+            promise.resolve(true) 
+        } ?: promise.reject("INVALID_HANDLE", "No model found for handle $handle")
+    }
+
+    @ReactMethod
+    fun addListener(eventName: String) {
+        // Required for event emitter
+    }
+
+    @ReactMethod
+    fun removeListeners(count: Int) {
+        // Required for event emitter
+    }
+
+    private fun copyAssetToInternalStorage(modelName: String): String {
+        val outputFile = File(reactContext.filesDir, modelName)
+        
+        if (outputFile.exists()) return outputFile.path
+        
+        reactContext.assets.open(modelName).use { inputStream ->
+            FileOutputStream(outputFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
         }
+        
+        return outputFile.path
+    }
 
-        llmInference!!.generateResponseAsync(
-          prompt
-        ) { partialResult, done ->
-          try {
-            successCallback.invoke(partialResult, done)
-          } catch (e: Exception) {
-            errorCallback.invoke("Callback error: ${e.message}")
-          }
+    private fun emitEvent(eventName: String, eventData: WritableMap) {
+        reactContext
+            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            .emit(eventName, eventData)
+    }
+
+    private fun createEventMap(handle: Int, requestId: Int, response: String? = null, error: String? = null): WritableMap {
+        return Arguments.createMap().apply {
+            putInt("handle", handle)
+            putInt("requestId", requestId)
+            if (response != null) putString("response", response)
+            if (error != null) putString("error", error)
         }
-      } catch (e: Exception) {
-        errorCallback.invoke("Failed to generate response: ${e.message}")
-      }
     }
-  }
-
-  @ReactMethod
-  fun isInitialized(promise: Promise) {
-    promise.resolve(isInitialized)
-  }
-
-  @ReactMethod
-  fun cleanup(promise: Promise) {
-    try {
-      llmInference?.close()
-      llmInference = null
-      isInitialized = false
-      scope.cancel()
-      promise.resolve(true)
-    } catch (e: Exception) {
-      promise.reject("CLEANUP_ERROR", "Failed to cleanup: ${e.message}", e)
-    }
-  }
-
-  @ReactMethod
-  fun addListener(eventName: String) {
-  }
-
-  @ReactMethod
-  fun removeListeners(count: Int) {
-  }
-
-  override fun onCatalystInstanceDestroy() {
-    super.onCatalystInstanceDestroy()
-    llmInference?.close()
-    scope.cancel()
-  }
-
-  companion object {
-    const val NAME = "MediapipeLlm"
-  }
-} 
+}
