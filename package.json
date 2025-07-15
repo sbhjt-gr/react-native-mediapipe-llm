@@ -122,7 +122,9 @@
     ]
   },
   "commitlint": {
-    "extends": ["@commitlint/config-conventional"]
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
   },
   "release-it": {
     "git": {
@@ -143,7 +145,10 @@
   },
   "eslintConfig": {
     "root": true,
-    "extends": ["@react-native", "prettier"],
+    "extends": [
+      "@react-native",
+      "prettier"
+    ],
     "rules": {
       "prettier/prettier": [
         "error",
@@ -157,7 +162,10 @@
       ]
     }
   },
-  "eslintIgnore": ["node_modules/", "lib/"],
+  "eslintIgnore": [
+    "node_modules/",
+    "lib/"
+  ],
   "prettier": {
     "quoteProps": "consistent",
     "singleQuote": true,
@@ -179,4 +187,4 @@
       ]
     ]
   }
-} 
+}

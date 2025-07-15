@@ -2,7 +2,7 @@ import Foundation
 import React
 import MediaPipeTasksGenAI
 
-@objc(MediapipeLlmModule)
+@objc(MediapipeLlm)
 class MediapipeLlmModule: RCTEventEmitter {
     private var nextHandle = 1
     private var modelMap = [Int: MediapipeLlmModel]()

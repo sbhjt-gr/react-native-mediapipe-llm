@@ -32,10 +32,6 @@ export interface LlmInferenceHook {
 }
 
 export function useLlmInference(config?: LlmInferenceConfig): LlmInferenceHook {
-  if (typeof useState !== 'function') {
-    throw new Error('useLlmInference must be called within a React component');
-  }
-  
   const [modelHandle, setModelHandle] = useState<number | undefined>();
   
   useEffect(() => {

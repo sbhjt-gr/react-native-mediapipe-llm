@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { useLlmInference, LlmInferenceConfig } from '@subhajit-gorai/react-native-mediapipe-llm';
 import TestComponent from '../TestComponent';
 
 interface Message {
@@ -14,8 +15,10 @@ export default function App() {
   const [partialResponse, setPartialResponse] = useState('');
   const [selectedModelPath, setSelectedModelPath] = useState<string | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(false);
+  const [llmConfig, setLlmConfig] = useState<LlmInferenceConfig | undefined>();
 
-
+  // Initialize the LLM hook
+  const llm = useLlmInference(llmConfig);
 
   const handleSelectModel = async () => {
     try {
@@ -27,12 +30,22 @@ export default function App() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (asset.name.endsWith('.bin') || asset.name.endsWith('.tflite')) {
+        if (asset.name.endsWith('.task')) {
           setSelectedModelPath(asset.uri);
           setMessages([]);
           setPartialResponse('');
+          
+          // Initialize the LLM with the selected model
+          setLlmConfig({
+            storageType: 'file',
+            modelPath: asset.uri,
+            maxTokens: 512,
+            topK: 40,
+            temperature: 0.8,
+            randomSeed: 0
+          });
         } else {
-          Alert.alert('Invalid File', 'Please select a .bin or .tflite model file.');
+          Alert.alert('Invalid File', 'Please select a .task model file.');
         }
       }
     } catch (error) {
@@ -43,25 +56,29 @@ export default function App() {
   };
 
   const handleSend = async () => {
-    if (!prompt.trim() /* || !llm.isLoaded */) return;
-    
+    if (!prompt.trim() || !llm.isLoaded) return;
+
     setMessages((prev: Message[]) => [...prev, { role: 'user', content: prompt }]);
     setPartialResponse('');
     const currentPrompt = prompt;
     setPrompt('');
-    
+
     try {
-      const response = 'Mock response for testing';
-      
+      const response = await llm.generateResponse(
+        currentPrompt,
+        (partial) => setPartialResponse(partial),
+        () => setPartialResponse('Failed to generate response.')
+      );
       setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: response }]);
       setPartialResponse('');
     } catch (error) {
       setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: 'Failed to generate response.' }]);
+      setPartialResponse('');
     }
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
@@ -90,7 +107,7 @@ export default function App() {
               disabled={isModelLoading}
             />
           </View>
-          
+
           <ScrollView contentContainerStyle={styles.scrollContent}>
             {messages.map((msg: Message, index: number) => (
               <View key={index} style={[styles.message, styles[msg.role]]}>
@@ -103,7 +120,7 @@ export default function App() {
               </View>
             ) : null}
           </ScrollView>
-          
+
           <View style={styles.inputContainer}>
             <TextInput
               value={prompt}
