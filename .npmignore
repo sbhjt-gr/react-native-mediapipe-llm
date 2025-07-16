@@ -16,6 +16,7 @@ yarn-error.log*
 
 # Example app
 example/
+demo/
 
 # Documentation
 docs/

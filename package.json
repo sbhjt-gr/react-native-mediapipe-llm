@@ -1,6 +1,6 @@
 {
   "name": "@subhajit-gorai/react-native-mediapipe-llm",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "React Native binding for Google AI Edge Gallery's MediaPipe on-device LLM inference engine",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/ios/build lib",
+    "prepare": "bob build",
     "setup": "bash scripts/setup.sh",
     "build:cpp": "bash scripts/build-cpp.sh",
     "validate": "bash scripts/validate-build.sh",
@@ -98,7 +99,7 @@
     "react-native-builder-bob": "^0.20.0",
     "release-it": "^15.0.0",
     "turbo": "^1.10.7",
-    "typescript": "^5.2.2"
+    "typescript": "^5.8.3"
   },
   "resolutions": {
     "@types/react": "^18.2.44"
@@ -186,5 +187,10 @@
         }
       ]
     ]
+  },
+  "codegenConfig": {
+    "name": "RNMediapipeLlmSpec",
+    "type": "all",
+    "jsSrcsDir": "src"
   }
 }
