@@ -31,7 +31,7 @@ class MediapipeLlmModel(
     
     companion object {
         private const val TAG = "MediapipeLlmModel"
-        private const val MAX_MODEL_SIZE_BYTES = 2L * 1024 * 1024 * 1024 // 2GB limit for mobile
+        private const val MAX_MODEL_SIZE_BYTES = 10L * 1024 * 1024 * 1024 
     }
 
     init {
@@ -77,14 +77,15 @@ class MediapipeLlmModel(
         Log.i(TAG, "Available memory: ${availableMemory / 1024 / 1024} MB")
         Log.i(TAG, "Model size: ${fileSize / 1024 / 1024} MB")
         
-        // Strict memory validation - model should not exceed 50% of available memory
-        if (fileSize > availableMemory * 0.5) {
-            throw IllegalArgumentException("Model too large for available memory. Model: ${fileSize / 1024 / 1024} MB, Available: ${availableMemory / 1024 / 1024} MB. Please use a smaller model.")
+        // Memory validation - model should not exceed 70% of available memory
+        // This allows for larger models while maintaining stability
+        if (fileSize > availableMemory * 0.7) {
+            throw IllegalArgumentException("Model too large for available memory. Model: ${fileSize / 1024 / 1024} MB, Available: ${availableMemory / 1024 / 1024} MB. Please use a smaller model or free up memory.")
         }
         
-        // Additional warning for models that are close to the limit
-        if (fileSize > availableMemory * 0.3) {
-            Log.w(TAG, "Model is large relative to available memory, loading may be slow")
+        // Warning for models that are close to the limit
+        if (fileSize > availableMemory * 0.5) {
+            Log.w(TAG, "Model is large relative to available memory, loading may be slow or require background app termination")
         }
     }
     
