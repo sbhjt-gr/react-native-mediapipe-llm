@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
+import type { MemoryConfiguration } from './NativeMediapipeLlm';
 
 const LINKING_ERROR =
   `The package 'react-native-mediapipe-llm' doesn't seem to be linked. Make sure: \n\n` +
@@ -17,4 +18,5 @@ const MediaPipeLlm = NativeModules.MediaPipeLlm
       }
     );
 
+export { MemoryConfiguration };
 export default MediaPipeLlm; 

@@ -5,4 +5,22 @@
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
   <uses-permission android:name="android.permission.CAMERA" />
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  
+  <!-- Memory optimization attributes that consuming apps should inherit -->
+  <application>
+    <!-- Recommend large heap for consuming applications -->
+    <meta-data 
+        android:name="com.reactnativemediapipellm.requires_large_heap" 
+        android:value="true" />
+    
+    <!-- Memory requirements information -->
+    <meta-data 
+        android:name="com.reactnativemediapipellm.min_heap_size" 
+        android:value="2048" />
+    
+    <!-- High memory device optimization -->
+    <meta-data 
+        android:name="com.reactnativemediapipellm.optimize_for_high_memory" 
+        android:value="true" />
+  </application>
 </manifest> 
