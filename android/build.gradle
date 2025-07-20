@@ -22,6 +22,24 @@ android {
     targetSdkVersion 33
     
     consumerProguardFiles "proguard-rules.pro"
+    
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared",
+                 "-DANDROID_TOOLCHAIN=clang",
+                 "-DMEDIAPIPE_ANDROID=1",
+                 "-DANDROID_NATIVE_API_LEVEL=21"
+        cppFlags "-std=c++17", "-frtti", "-fexceptions"
+        abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "../CMakeLists.txt"
+      version "3.22.1"
+    }
   }
 
   buildTypes {
@@ -48,5 +66,4 @@ repositories {
 dependencies {
   implementation 'com.facebook.react:react-native:+'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.0"
-  implementation "com.google.mediapipe:tasks-genai:0.10.24"
 }

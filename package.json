@@ -1,6 +1,6 @@
 {
   "name": "@subhajit-gorai/react-native-mediapipe-llm",
-  "version": "1.0.7",
+  "version": "1.0.12",
   "description": "React Native binding for Google AI Edge Gallery's MediaPipe on-device LLM inference engine",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
@@ -47,6 +47,7 @@
     "prepare": "bob build",
     "setup": "bash scripts/setup.sh",
     "build:cpp": "bash scripts/build-cpp.sh",
+    "build:android-submodule": "bash build-android-submodule.sh",
     "validate": "bash scripts/validate-build.sh",
     "prepublishOnly": "npm run validate",
     "postinstall": "node scripts/post-install.js",
