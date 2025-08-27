@@ -3,7 +3,10 @@ import type { MemoryConfiguration } from './NativeMediapipeLlm';
 
 const LINKING_ERROR =
   `The package 'react-native-mediapipe-llm' doesn't seem to be linked. Make sure: \n\n` +
-  Platform.select({ ios: "- You have run 'cd ios && pod install'\n", default: '' }) +
+  Platform.select({
+    ios: "- You have run 'cd ios && pod install'\n",
+    default: '',
+  }) +
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n';
 
@@ -19,4 +22,4 @@ const MediaPipeLlm = NativeModules.MediaPipeLlm
     );
 
 export { MemoryConfiguration };
-export default MediaPipeLlm; 
+export default MediaPipeLlm;

@@ -21,5 +21,8 @@ export function getMediapipeLlmModule() {
 }
 
 export function isMediapipeLlmAvailable(): boolean {
-  return !!NativeModules[MODULE_NAME] && typeof NativeModules[MODULE_NAME] === 'object';
+  return (
+    !!NativeModules[MODULE_NAME] &&
+    typeof NativeModules[MODULE_NAME] === 'object'
+  );
 }
