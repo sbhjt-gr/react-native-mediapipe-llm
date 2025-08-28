@@ -191,17 +191,6 @@ class MediapipeLlmModel(
         val options = LlmInference.LlmInferenceOptions.builder()
           .setModelPath(modelPath)
           .setMaxTokens(maxTokens)
-          .setRandomSeed(randomSeed)
-          .setResultListener { partialResult: String, done: Boolean ->
-            inferenceListener?.onResults(this@MediapipeLlmModel, requestId, partialResult)
-            requestResult += partialResult
-            if (done) {
-              requestPromise?.resolve(requestResult)
-            }
-          }
-          .setErrorListener { ex: RuntimeException ->
-            inferenceListener?.onError(this@MediapipeLlmModel, requestId, ex.localizedMessage ?: "Unknown error")
-          }
           .build()
 
         android.util.Log.d("MediapipeLlmModel", "Creating LlmInference with options...")
@@ -246,7 +235,13 @@ class MediapipeLlmModel(
     this.requestPromise = promise
     
     try {
-      session.generateResponseAsync(prompt)
+      session.generateResponseAsync(prompt) { partialResult: String, done: Boolean ->
+        inferenceListener?.onResults(this@MediapipeLlmModel, requestId, partialResult)
+        requestResult += partialResult
+        if (done) {
+          requestPromise?.resolve(requestResult)
+        }
+      }
     } catch (e: Exception) {
       promise.reject("GENERATION_FAILED", e.localizedMessage ?: "Failed to generate response")
     }
