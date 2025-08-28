@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import java.io.File
 import java.io.FileOutputStream
 
@@ -159,39 +160,99 @@ class MediapipeLlmModel(
   val randomSeed: Int,
   val inferenceListener: InferenceListener? = null,
 ) {
-  private var llmInference: LlmInference
+  private var llmInference: LlmInference? = null
+  private var llmSession: LlmInferenceSession? = null
+  private var isInitialized = false
+  private var initializationError: String? = null
 
   private var requestId: Int = 0
   private var requestResult: String = ""
   private var requestPromise: Promise? = null
 
   init {
-    val options = LlmInference.LlmInferenceOptions.builder()
-      .setModelPath(modelPath)
-      .setMaxTokens(maxTokens)
-      .setTemperature(temperature)
-      .setRandomSeed(randomSeed)
-      .setResultListener { partialResult: String, done: Boolean ->
-        inferenceListener?.onResults(this@MediapipeLlmModel, requestId, partialResult)
-        requestResult += partialResult
-        if (done) {
-          requestPromise?.resolve(requestResult)
-        }
-      }
-      .setErrorListener { ex: RuntimeException ->
-        inferenceListener?.onError(this@MediapipeLlmModel, requestId, ex.localizedMessage ?: "")
-      }
-      .build()
+    initializeModel()
+  }
 
-    llmInference = LlmInference.createFromOptions(context, options)
+  private fun initializeModel() {
+    Thread {
+      try {
+        android.util.Log.d("MediapipeLlmModel", "Initializing model at path: $modelPath")
+        
+        val file = java.io.File(modelPath)
+        if (!file.exists()) {
+          throw IllegalArgumentException("Model file does not exist: $modelPath")
+        }
+        if (!file.canRead()) {
+          throw IllegalArgumentException("Cannot read model file: $modelPath")
+        }
+        
+        android.util.Log.d("MediapipeLlmModel", "Model file validated. Size: ${file.length()} bytes")
+
+        val options = LlmInference.LlmInferenceOptions.builder()
+          .setModelPath(modelPath)
+          .setMaxTokens(maxTokens)
+          .setRandomSeed(randomSeed)
+          .setResultListener { partialResult: String, done: Boolean ->
+            inferenceListener?.onResults(this@MediapipeLlmModel, requestId, partialResult)
+            requestResult += partialResult
+            if (done) {
+              requestPromise?.resolve(requestResult)
+            }
+          }
+          .setErrorListener { ex: RuntimeException ->
+            inferenceListener?.onError(this@MediapipeLlmModel, requestId, ex.localizedMessage ?: "Unknown error")
+          }
+          .build()
+
+        android.util.Log.d("MediapipeLlmModel", "Creating LlmInference with options...")
+        llmInference = LlmInference.createFromOptions(context, options)
+        
+        android.util.Log.d("MediapipeLlmModel", "Creating LlmInferenceSession with temperature: $temperature, topK: $topK...")
+        val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+          .setTopK(topK)
+          .setTemperature(temperature)
+          .build()
+        
+        llmSession = LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions)
+        isInitialized = true
+        android.util.Log.d("MediapipeLlmModel", "Model and session initialized successfully")
+        
+      } catch (e: Exception) {
+        android.util.Log.e("MediapipeLlmModel", "Failed to initialize model", e)
+        initializationError = e.localizedMessage ?: "Unknown initialization error"
+        isInitialized = false
+      }
+    }.start()
   }
 
   fun generateResponseAsync(requestId: Int, prompt: String, promise: Promise) {
+    if (!isInitialized) {
+      if (initializationError != null) {
+        promise.reject("MODEL_NOT_INITIALIZED", initializationError)
+      } else {
+        promise.reject("MODEL_NOT_INITIALIZED", "Model is still initializing")
+      }
+      return
+    }
+
+    val session = llmSession
+    if (session == null) {
+      promise.reject("SESSION_NOT_AVAILABLE", "LLM inference session is not available")
+      return
+    }
+
     this.requestId = requestId
     this.requestResult = ""
     this.requestPromise = promise
-    llmInference.generateResponseAsync(prompt)
+    
+    try {
+      session.generateResponseAsync(prompt)
+    } catch (e: Exception) {
+      promise.reject("GENERATION_FAILED", e.localizedMessage ?: "Failed to generate response")
+    }
   }
+
+  fun isReady(): Boolean = isInitialized && llmInference != null && llmSession != null
 }
 
 interface InferenceListener {
