@@ -235,7 +235,8 @@ class MediapipeLlmModel(
     this.requestPromise = promise
     
     try {
-      session.generateResponseAsync(prompt) { partialResult: String, done: Boolean ->
+      session.addQueryChunk(prompt)
+      session.generateResponseAsync { partialResult: String, done: Boolean ->
         inferenceListener?.onResults(this@MediapipeLlmModel, requestId, partialResult)
         requestResult += partialResult
         if (done) {
