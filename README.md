@@ -1,5 +1,7 @@
 # react-native-mediapipe-llm
 
+This module is currently in development and is incomplete. Please don't use it.
+
 React Native binding for Google AI Edge Gallery's MediaPipe on-device LLM inference engine.
 
 ## Features
